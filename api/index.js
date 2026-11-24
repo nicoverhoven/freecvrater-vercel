@@ -603,10 +603,7 @@ function getThinkingLevelForModel(model) {
   if (!/^gemini-[34]/i.test(model)) {
     return void 0;
   }
-  if (model.includes("flash-lite")) {
-    return ThinkingLevel.MINIMAL;
-  }
-  return ThinkingLevel.LOW;
+  return ThinkingLevel.MINIMAL;
 }
 function createGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
@@ -618,7 +615,7 @@ function createGeminiClient() {
   return new GoogleGenAI({
     apiKey,
     httpOptions: {
-      timeout: 38e3,
+      timeout: 5e4,
       headers: {
         "User-Agent": "aistudio-build"
       }
@@ -857,7 +854,7 @@ async function generateWithFallback(params) {
     const model = modelsToTry[i];
     const hasFallback = i < modelsToTry.length - 1;
     const maxAttempts = hasFallback ? 1 : 2;
-    const attemptTimeoutMs = hasFallback ? isVision ? 3e4 : 24e3 : isVision ? 4e4 : 32e3;
+    const attemptTimeoutMs = hasFallback ? isVision ? 35e3 : 28e3 : isVision ? 52e3 : 48e3;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       if (callerAbortSignal?.aborted) {
         throw new Error("Request aborted by client.");

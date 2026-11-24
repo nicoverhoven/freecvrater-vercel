@@ -107,10 +107,7 @@ function getThinkingLevelForModel(model: string): ThinkingLevel | undefined {
   if (!/^gemini-[34]/i.test(model)) {
     return undefined;
   }
-  if (model.includes('flash-lite')) {
-    return ThinkingLevel.MINIMAL;
-  }
-  return ThinkingLevel.LOW;
+  return ThinkingLevel.MINIMAL;
 }
 
 function createGeminiClient(): GoogleGenAI {
@@ -124,7 +121,7 @@ function createGeminiClient(): GoogleGenAI {
   return new GoogleGenAI({
     apiKey,
     httpOptions: {
-      timeout: 38000,
+      timeout: 50000,
       headers: {
         'User-Agent': 'aistudio-build',
       },
@@ -401,11 +398,11 @@ export async function generateWithFallback(params: {
     // Bound each attempt tightly so a stalled primary call fails over quickly instead of timing out the browser
     const attemptTimeoutMs = hasFallback
       ? isVision
-        ? 30000
-        : 24000
+        ? 35000
+        : 28000
       : isVision
-        ? 40000
-        : 32000;
+        ? 52000
+        : 48000;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       if (callerAbortSignal?.aborted) {
