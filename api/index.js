@@ -652,9 +652,10 @@ SCORING RUBRIC (Total 100 points \u2014 assign exact integer scores within each 
 - professional_presentation (max 10): Consistency in formatting, bullet punctuation, clean professional links, and overall visual scannability.
 
 EXPERIENCE & GRAMMAR RULES:
-- For grammarIssues, cite real sentences or phrases from the CV, explain the exact issue, and offer a clear fix preserving the candidate's meaning.
-- For experienceEvaluation.bulletImprovements, quote real weak bullets from the CV and rewrite them with stronger structure\u2014use placeholders like "[X%]" or "[N]" ONLY if suggesting where the candidate can add their own real metric, never fabricate numbers.
-- For recommendations, give specific, prioritized fixes grounded in this exact CV. Keep all explanations crisp and high-signal.`;
+- For grammarIssues, cite real sentences or phrases from the CV, explain the exact issue, and offer a clear fix preserving the candidate's meaning (limit to top 4 issues).
+- For experienceEvaluation.bulletImprovements, quote real weak bullets from the CV and rewrite them with stronger structure (limit to top 3 bullets).
+- For recommendations, give specific, prioritized fixes grounded in this exact CV. Keep all explanations crisp, high-signal, and under 2 sentences each (limit to top 4 recommendations).
+- Be extremely fast and concise. Avoid unnecessary preamble or verbose descriptions.`;
 var RESPONSE_SCHEMA = {
   type: Type.OBJECT,
   properties: {
@@ -901,13 +902,13 @@ async function generateWithFallback(params) {
         if (callerAbortSignal?.aborted) {
           throw err;
         }
-        if (isModelNotFoundError(err)) {
+        if (isModelNotFoundError(err) || /503|UNAVAILABLE|RESOURCE_EXHAUSTED|429/i.test(msg)) {
           if (hasFallback) {
             console.warn(
-              `[FreeCVRater] Gemini model "${model}" unavailable (404/NOT_FOUND); falling back to "${modelsToTry[i + 1]}".`
+              `[FreeCVRater] Gemini model "${model}" busy or unavailable; falling back immediately to "${modelsToTry[i + 1]}".`
             );
+            break;
           }
-          break;
         }
         const attemptTimedOut = attemptController.signal.aborted;
         const isTransient = attemptTimedOut || /429|503|500|502|504|UNAVAILABLE|RESOURCE_EXHAUSTED|DEADLINE_EXCEEDED|timeout|aborted|ECONNRESET|ETIMEDOUT/i.test(
