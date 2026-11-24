@@ -23,13 +23,21 @@ const PROHIBITED_DEPRECATED_MODELS = new Set([
   'gemini-2.0-flash-thinking',
 ]);
 
+export function cleanModelName(model: string | undefined): string {
+  if (!model) return '';
+  return model
+    .trim()
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .trim();
+}
+
 export function isGeminiConfigured(): boolean {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   return Boolean(apiKey && apiKey !== 'MY_GEMINI_API_KEY');
 }
 
 export function getConfiguredModel(): string {
-  const envModel = process.env.GEMINI_MODEL?.trim();
+  const envModel = cleanModelName(process.env.GEMINI_MODEL);
   if (!envModel || PROHIBITED_DEPRECATED_MODELS.has(envModel)) {
     return DEFAULT_GEMINI_MODEL;
   }
@@ -37,7 +45,7 @@ export function getConfiguredModel(): string {
 }
 
 export function getConfiguredFallbackModel(): string {
-  const envFallback = process.env.GEMINI_FALLBACK_MODEL?.trim();
+  const envFallback = cleanModelName(process.env.GEMINI_FALLBACK_MODEL);
   if (!envFallback || PROHIBITED_DEPRECATED_MODELS.has(envFallback)) {
     return FALLBACK_GEMINI_MODEL;
   }
@@ -49,13 +57,13 @@ export function buildModelFallbackChain(
   fallbackModel = getConfiguredFallbackModel()
 ): string[] {
   const candidates = [
-    primaryModel,
+    cleanModelName(primaryModel),
     DEFAULT_GEMINI_MODEL,
-    fallbackModel,
+    cleanModelName(fallbackModel),
     FALLBACK_GEMINI_MODEL,
     SECONDARY_FALLBACK_GEMINI_MODEL,
   ]
-    .map((m) => m.trim())
+    .map((m) => cleanModelName(m))
     .filter((m) => Boolean(m) && !PROHIBITED_DEPRECATED_MODELS.has(m));
 
   const seen = new Set<string>();
@@ -462,11 +470,14 @@ export async function generateWithFallback(params: {
           throw err;
         }
 
-        // If a model is busy, overloaded, rate-limited, or unavailable (503 / 429 / 404), fail over immediately to the next fallback model
-        if (isModelNotFoundError(err) || /503|UNAVAILABLE|RESOURCE_EXHAUSTED|429/i.test(msg)) {
+        // If a model is rejected (e.g. unexpected model name format), busy, overloaded, rate-limited, or unavailable, fail over immediately
+        if (
+          isModelNotFoundError(err) ||
+          /unexpected model name format|invalid.*model|not found|503|UNAVAILABLE|RESOURCE_EXHAUSTED|429/i.test(msg)
+        ) {
           if (hasFallback) {
             console.warn(
-              `[FreeCVRater] Gemini model "${model}" busy or unavailable; falling back immediately to "${modelsToTry[i + 1]}".`
+              `[FreeCVRater] Gemini model "${model}" failed (${msg.slice(0, 80)}); falling back immediately to "${modelsToTry[i + 1]}".`
             );
             break;
           }

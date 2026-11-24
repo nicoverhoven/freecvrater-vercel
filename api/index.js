@@ -542,19 +542,23 @@ var PROHIBITED_DEPRECATED_MODELS = /* @__PURE__ */ new Set([
   "gemini-2.0-pro",
   "gemini-2.0-flash-thinking"
 ]);
+function cleanModelName(model) {
+  if (!model) return "";
+  return model.trim().replace(/^["'`]+|["'`]+$/g, "").trim();
+}
 function isGeminiConfigured() {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   return Boolean(apiKey && apiKey !== "MY_GEMINI_API_KEY");
 }
 function getConfiguredModel() {
-  const envModel = process.env.GEMINI_MODEL?.trim();
+  const envModel = cleanModelName(process.env.GEMINI_MODEL);
   if (!envModel || PROHIBITED_DEPRECATED_MODELS.has(envModel)) {
     return DEFAULT_GEMINI_MODEL;
   }
   return envModel;
 }
 function getConfiguredFallbackModel() {
-  const envFallback = process.env.GEMINI_FALLBACK_MODEL?.trim();
+  const envFallback = cleanModelName(process.env.GEMINI_FALLBACK_MODEL);
   if (!envFallback || PROHIBITED_DEPRECATED_MODELS.has(envFallback)) {
     return FALLBACK_GEMINI_MODEL;
   }
@@ -562,12 +566,12 @@ function getConfiguredFallbackModel() {
 }
 function buildModelFallbackChain(primaryModel, fallbackModel = getConfiguredFallbackModel()) {
   const candidates = [
-    primaryModel,
+    cleanModelName(primaryModel),
     DEFAULT_GEMINI_MODEL,
-    fallbackModel,
+    cleanModelName(fallbackModel),
     FALLBACK_GEMINI_MODEL,
     SECONDARY_FALLBACK_GEMINI_MODEL
-  ].map((m) => m.trim()).filter((m) => Boolean(m) && !PROHIBITED_DEPRECATED_MODELS.has(m));
+  ].map((m) => cleanModelName(m)).filter((m) => Boolean(m) && !PROHIBITED_DEPRECATED_MODELS.has(m));
   const seen = /* @__PURE__ */ new Set();
   const unique = [];
   for (const model of candidates) {
@@ -902,10 +906,10 @@ async function generateWithFallback(params) {
         if (callerAbortSignal?.aborted) {
           throw err;
         }
-        if (isModelNotFoundError(err) || /503|UNAVAILABLE|RESOURCE_EXHAUSTED|429/i.test(msg)) {
+        if (isModelNotFoundError(err) || /unexpected model name format|invalid.*model|not found|503|UNAVAILABLE|RESOURCE_EXHAUSTED|429/i.test(msg)) {
           if (hasFallback) {
             console.warn(
-              `[FreeCVRater] Gemini model "${model}" busy or unavailable; falling back immediately to "${modelsToTry[i + 1]}".`
+              `[FreeCVRater] Gemini model "${model}" failed (${msg.slice(0, 80)}); falling back immediately to "${modelsToTry[i + 1]}".`
             );
             break;
           }
