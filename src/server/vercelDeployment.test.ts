@@ -73,23 +73,21 @@ function startVercelExpressSimulator(): Promise<{
   });
 }
 
-test('vercel.json follows official Vercel Express deployment without /api catch-all rewrites', () => {
+test('vercel.json is properly configured for Vercel deployment with API rewrites and dist output', () => {
   const vercelJsonPath = path.join(rootDir, 'vercel.json');
   assert.equal(fs.existsSync(vercelJsonPath), true);
 
   const config = JSON.parse(fs.readFileSync(vercelJsonPath, 'utf-8')) as Record<string, unknown>;
-  assert.equal(config.framework, 'express');
-  assert.equal(config.outputDirectory, null);
+  assert.equal(config.outputDirectory, 'dist');
   assert.equal(config.buildCommand, 'npm run vercel-build');
-  assert.equal(config.rewrites, undefined, 'Must not rewrite all routes to /api');
+  assert.ok(Array.isArray(config.rewrites), 'Must configure rewrites');
 
   const functions = config.functions as Record<string, { maxDuration?: number; includeFiles?: string }>;
-  assert.ok(functions['server.ts'], 'functions["server.ts"] config must exist');
-  assert.equal(functions['server.ts'].maxDuration, 60);
-  assert.equal(functions['server.ts'].includeFiles, 'dist/index.html');
+  assert.ok(functions['api/index.ts'], 'functions["api/index.ts"] config must exist');
+  assert.equal(functions['api/index.ts'].maxDuration, 60);
 
-  // Ensure no duplicate api/index.ts Express entrypoint exists
-  assert.equal(fs.existsSync(path.join(rootDir, 'api', 'index.ts')), false);
+  // Ensure api/index.ts Express entrypoint exists
+  assert.equal(fs.existsSync(path.join(rootDir, 'api', 'index.ts')), true);
   assert.equal(fs.existsSync(path.join(rootDir, 'server.ts')), true);
 });
 
