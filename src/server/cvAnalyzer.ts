@@ -107,7 +107,10 @@ function getThinkingLevelForModel(model: string): ThinkingLevel | undefined {
   if (!/^gemini-[34]/i.test(model)) {
     return undefined;
   }
-  return ThinkingLevel.MINIMAL;
+  if (model.includes('flash-lite')) {
+    return ThinkingLevel.MINIMAL;
+  }
+  return ThinkingLevel.LOW;
 }
 
 function createGeminiClient(): GoogleGenAI {
@@ -398,11 +401,11 @@ export async function generateWithFallback(params: {
     // Bound each attempt tightly so a stalled primary call fails over quickly instead of timing out the browser
     const attemptTimeoutMs = hasFallback
       ? isVision
-        ? 35000
-        : 28000
+        ? 45000
+        : 40000
       : isVision
-        ? 52000
-        : 48000;
+        ? 55000
+        : 52000;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       if (callerAbortSignal?.aborted) {
@@ -438,6 +441,22 @@ export async function generateWithFallback(params: {
       } catch (err: unknown) {
         lastError = err;
 
+        const msg = err instanceof Error ? err.message : String(err);
+
+        // If a model rejects thinkingConfig (e.g. invalid thinking level), retry immediately without it
+        if (/thinking/i.test(msg) && config.thinkingConfig) {
+          delete config.thinkingConfig;
+          try {
+            return await invokeGenerate({
+              model,
+              contents,
+              config,
+            });
+          } catch (retryErr) {
+            lastError = retryErr;
+          }
+        }
+
         if (callerAbortSignal?.aborted) {
           throw err;
         }
@@ -453,7 +472,6 @@ export async function generateWithFallback(params: {
         }
 
         const attemptTimedOut = attemptController.signal.aborted;
-        const msg = err instanceof Error ? err.message : String(err);
         const isTransient =
           attemptTimedOut ||
           /429|503|500|502|504|UNAVAILABLE|RESOURCE_EXHAUSTED|DEADLINE_EXCEEDED|timeout|aborted|ECONNRESET|ETIMEDOUT/i.test(

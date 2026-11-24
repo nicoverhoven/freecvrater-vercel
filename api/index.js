@@ -603,7 +603,10 @@ function getThinkingLevelForModel(model) {
   if (!/^gemini-[34]/i.test(model)) {
     return void 0;
   }
-  return ThinkingLevel.MINIMAL;
+  if (model.includes("flash-lite")) {
+    return ThinkingLevel.MINIMAL;
+  }
+  return ThinkingLevel.LOW;
 }
 function createGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
@@ -854,7 +857,7 @@ async function generateWithFallback(params) {
     const model = modelsToTry[i];
     const hasFallback = i < modelsToTry.length - 1;
     const maxAttempts = hasFallback ? 1 : 2;
-    const attemptTimeoutMs = hasFallback ? isVision ? 35e3 : 28e3 : isVision ? 52e3 : 48e3;
+    const attemptTimeoutMs = hasFallback ? isVision ? 45e3 : 4e4 : isVision ? 55e3 : 52e3;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       if (callerAbortSignal?.aborted) {
         throw new Error("Request aborted by client.");
@@ -866,22 +869,35 @@ async function generateWithFallback(params) {
       const combinedSignal = callerAbortSignal ? AbortSignal.any([callerAbortSignal, attemptController.signal]) : attemptController.signal;
       try {
         const thinkingLevel = getThinkingLevelForModel(model);
-        const config = {
+        const config2 = {
           systemInstruction: SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
           responseSchema: RESPONSE_SCHEMA,
           abortSignal: combinedSignal
         };
         if (thinkingLevel !== void 0) {
-          config.thinkingConfig = { thinkingLevel };
+          config2.thinkingConfig = { thinkingLevel };
         }
         return await invokeGenerate({
           model,
           contents,
-          config
+          config: config2
         });
       } catch (err) {
         lastError = err;
+        const msg = err instanceof Error ? err.message : String(err);
+        if (/thinking/i.test(msg) && config.thinkingConfig) {
+          delete config.thinkingConfig;
+          try {
+            return await invokeGenerate({
+              model,
+              contents,
+              config
+            });
+          } catch (retryErr) {
+            lastError = retryErr;
+          }
+        }
         if (callerAbortSignal?.aborted) {
           throw err;
         }
@@ -894,7 +910,6 @@ async function generateWithFallback(params) {
           break;
         }
         const attemptTimedOut = attemptController.signal.aborted;
-        const msg = err instanceof Error ? err.message : String(err);
         const isTransient = attemptTimedOut || /429|503|500|502|504|UNAVAILABLE|RESOURCE_EXHAUSTED|DEADLINE_EXCEEDED|timeout|aborted|ECONNRESET|ETIMEDOUT/i.test(
           msg
         );
