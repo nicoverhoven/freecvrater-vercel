@@ -83,11 +83,11 @@ test('vercel.json is properly configured for Vercel deployment with API rewrites
   assert.ok(Array.isArray(config.rewrites), 'Must configure rewrites');
 
   const functions = config.functions as Record<string, { maxDuration?: number; includeFiles?: string }>;
-  assert.ok(functions['api/index.ts'], 'functions["api/index.ts"] config must exist');
-  assert.equal(functions['api/index.ts'].maxDuration, 60);
+  assert.ok(functions['api/index.js'], 'functions["api/index.js"] config must exist');
+  assert.equal(functions['api/index.js'].maxDuration, 60);
 
-  // Ensure api/index.ts Express entrypoint exists
-  assert.equal(fs.existsSync(path.join(rootDir, 'api', 'index.ts')), true);
+  // Ensure api/index.js Express entrypoint exists
+  assert.equal(fs.existsSync(path.join(rootDir, 'api', 'index.js')), true);
   assert.equal(fs.existsSync(path.join(rootDir, 'server.ts')), true);
 });
 
