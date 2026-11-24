@@ -1,0 +1,14 @@
+node_modules/
+build/
+dist/
+server.js
+.vercel/
+public/.vercel-static-manifest.json
+public/assets/*.js
+public/assets/*.css
+public/src/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
